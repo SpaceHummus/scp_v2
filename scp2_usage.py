@@ -1,5 +1,5 @@
 '''
-Sample usage code for using SCP V2. Testing Arducam motor camera + Neo Pixel + Pi zero in space environment 
+Code for SCP V2. Testing Arducam motor camera + Neo Pixel + Pi zero in space environment 
 Using UART serial communication with the following setup:
 
 Baud rate: 115200
@@ -21,7 +21,6 @@ Parameters:
 Returns:
     image size: 3 bytes   
 
-
 2. 
 Name: Get image
 Description: Get the data of the last taken image. Call Take image first!
@@ -34,16 +33,16 @@ Returns:
 
 3. 
 Name: Get telemetry
-Description: Gets telemetry data from the PI. CPU temparture,CPU load 
+Description: Gets telemetry data from the PI. CPU temparture,CPU load, uptime in minutes
 OP code: 0x02
 Parameters:
     None
 Returns:
     CPU Temparture: 1 byte
     CPU Load: 1 byte
+    Uptime: 3 bytes
 
 '''
-
 
 import time
 import serial
@@ -78,20 +77,21 @@ def take_image():
 
 
 def get_image(file_size): 
-    print("getting the image, please wait...")
-    ser.write(b'\x01') # OP code 00 - take image
+    print("getting the image. number of bytes: %d, please wait..." %file_size)
+    ser.write(b'\x01') # OP code 00 - get image
     with open(IMAGE_FILE_NAME, "wb") as image:
         for i in range(file_size):
             s = wait4result(1,False)
             image.write(s)
-            # print(s)
+            print(i,s)
         print("Done getting the image")
     
 def get_telemetry(): 
     ser.write(b'\x02')
     cpu_temp = wait4result(1,True)
     cpu_load = wait4result(1,True)
-    print("Got telemetry. CPU temp: %d, cpu load: %d" % (cpu_temp,cpu_load))
+    uptime = wait4result(3,True)
+    print("Got telemetry. CPU temp: %d, cpu load: %d, uptime: %d" % (cpu_temp,cpu_load,uptime))
 
 if __name__ == "__main__":
     try:

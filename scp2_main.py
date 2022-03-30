@@ -5,7 +5,7 @@ Using UART serial communication with the following setup:
 Baud rate: 115200
 Parity: No
 Stopbits: 1
-Bytes order: Big endian
+Bytes order: Big endian 
 
 The system supports the following three commands:
 
@@ -34,13 +34,14 @@ Returns:
 
 3. 
 Name: Get telemetry
-Description: Gets telemetry data from the PI. CPU temparture,CPU load 
+Description: Gets telemetry data from the PI. CPU temparture,CPU load, uptime in minutes
 OP code: 0x02
 Parameters:
     None
 Returns:
     CPU Temparture: 1 byte
     CPU Load: 1 byte
+    Uptime: 3 bytes
 
 '''
 
@@ -56,10 +57,11 @@ from ctypes import *
 import traceback
 from gpiozero import CPUTemperature
 from gpiozero import LoadAverage
+from camera_handler import CameraHandler
 
 ser = serial.Serial ("/dev/ttyS0", 115200,parity='N',stopbits=1, timeout=0.1)    #on PI4
 pixels = neopixel.NeoPixel(board.D21, 5,brightness =1)
-IMAGE_FILE_NAME ="/home/pi/dev/scp2/image.jpg"
+IMAGE_FILE_NAME ="image.jpg"
 
 
 # takes a picture from Arducam camera
@@ -68,14 +70,17 @@ def take_pic(f ,r, g, b):
     pixels.fill((r, g, b))
     pixels.show()
 
-    cmd = "raspistill -w 640 -h 480 -n -t 100 -q 20 -e jpg -th none -o %s" %IMAGE_FILE_NAME
+    # cmd = "raspistill -w 640 -h 480 -n -t 100 -q 20 -e jpg -th none -o %s" %IMAGE_FILE_NAME
     # cmd = "raspistill -q 30 -o %s" %saved_file_name
-    print(cmd)
-    os.system(cmd)
+    # print(cmd)
+    camera = CameraHandler()
+    camera.change_focus(f)
+    camera.take_pic_scp2(IMAGE_FILE_NAME)
     pixels.fill((0, 0 , 0))
     with open(IMAGE_FILE_NAME, "rb") as image:
         file = image.read()
         size = len(file)
+    print(size)
     return size
 
 # get last image data
@@ -86,6 +91,7 @@ def get_image():
         print(size)
         for i in range (size):
             ser.write(bytes([file[i]]))
+            print(i,bytes([file[i]]))
         print("image sent...")
 
 # get telemetry data
@@ -97,7 +103,12 @@ def get_telemetry():
     ser.write(in_bytes)
     in_bytes = cpu_load.to_bytes(1,'big')
     ser.write(in_bytes)
-    print("Sent telemetry. CPU temp: %d, cpu load: %d" % (cpu_temp,cpu_load))
+    with open ('uptime.txt','r') as the_file:
+        uptime = int(the_file.read())
+    in_bytes = uptime.to_bytes(3,'big')
+    ser.write(in_bytes)
+    print("Sent telemetry. CPU temp: %d, cpu load: %d, uptime: %d" % (cpu_temp,cpu_load, uptime))
+   
 
 # main loop
 def main():
@@ -137,5 +148,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+        # get_telemetry()
+        # take_pic(800,0,0,255)
     except Exception:
         print(traceback.format_exc())
